@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = Path(os.environ.get("CODEX_HOME", Path.home() / ".codex")) / "keeptabs"
 CFG = DATA / "budget.json"
 DEFAULT_CFG = ROOT / "budget.json"
+PRICING_FILE = Path(__file__).with_name("pricing.json")
 
 
 def read_input():
@@ -32,6 +33,7 @@ def config():
 def records(path):
     """Read Codex token_usage_record events; this private transcript format may change."""
     out = []
+    models_by_turn = {}
     if not path:
         return out
     try:
@@ -39,9 +41,15 @@ def records(path):
             for line in f:
                 try:
                     event = json.loads(line)
+                    p = event.get("payload") or {}
+                    if event.get("type") == "turn_context":
+                        turn_id = p.get("turn_id")
+                        model = p.get("model")
+                        if turn_id and model:
+                            models_by_turn[turn_id] = str(model)
+                        continue
                     if event.get("type") != "token_usage_record":
                         continue
-                    p = event.get("payload") or {}
                     # Codex writes a per-response usage record plus cumulative usage
                     # for the enclosing turn. Use the latter to avoid undercounting
                     # turns that contain more than one model response.
@@ -57,6 +65,8 @@ def records(path):
                     continue
     except OSError:
         pass
+    for row in out:
+        row["model"] = models_by_turn.get(row["turn_id"])
     # Event records can represent cumulative thread usage. Prefer the latest record per turn.
     by_turn = {}
     for row in out:
@@ -84,6 +94,64 @@ def latest_transcript():
 
 def emit(obj):
     print(json.dumps(obj))
+
+
+def load_pricing():
+    try:
+        return json.loads(PRICING_FILE.read_text())
+    except (OSError, ValueError):
+        return {"verified_date": None, "models": {}}
+
+
+def estimate_costs(rows):
+    """Return list-price estimates only for turns whose models have published rates."""
+    pricing = load_pricing()
+    models = pricing.get("models", {})
+    totals = {
+        "chatgpt_credits": {"value": 0.0, "priced_tokens": 0, "turns": 0},
+        "api_usd": {"short": 0.0, "long": 0.0, "priced_tokens": 0, "turns": 0},
+    }
+    all_tokens = sum(row.get("total") or 0 for row in rows)
+    for row in rows:
+        model = models.get(row.get("model"))
+        if not model:
+            continue
+        input_tokens = max(0, row.get("input") or 0)
+        cached = min(input_tokens, max(0, row.get("cached_input") or 0))
+        cache_write = min(input_tokens - cached, max(0, row.get("cache_write_input") or 0))
+        uncached = input_tokens - cached - cache_write
+        output = max(0, row.get("output") or 0)
+        turn_tokens = row.get("total") or 0
+
+        credit_rates = model.get("chatgpt_credits_per_million")
+        if credit_rates:
+            totals["chatgpt_credits"]["value"] += (
+                (uncached + cache_write) * credit_rates["input"]
+                + cached * credit_rates["cached_input"]
+                + output * credit_rates["output"]
+            ) / 1_000_000
+            totals["chatgpt_credits"]["priced_tokens"] += turn_tokens
+            totals["chatgpt_credits"]["turns"] += 1
+
+        api_rates = model.get("api_usd_per_million")
+        if api_rates and "short" in api_rates and "long" in api_rates:
+            for context_class in ("short", "long"):
+                rates = api_rates[context_class]
+                totals["api_usd"][context_class] += (
+                    uncached * rates["input"]
+                    + cached * rates["cached_input"]
+                    + cache_write * rates["cache_write_input"]
+                    + output * rates["output"]
+                ) / 1_000_000
+            totals["api_usd"]["priced_tokens"] += turn_tokens
+            totals["api_usd"]["turns"] += 1
+
+    for estimate in totals.values():
+        estimate["coverage_percent"] = (
+            round(100 * estimate["priced_tokens"] / all_tokens, 1) if all_tokens else 0.0
+        )
+    totals["pricing_verified_date"] = pricing.get("verified_date")
+    return totals
 
 
 def ensure_config():
@@ -116,6 +184,7 @@ def run(mode):
             emit({"systemMessage": f"keeptabs budget warning: observed session usage is {total:,} tokens ({total/cap:.0%} of {cap:,})."})
         return
     if mode == "json":
+        report["cost_estimates"] = estimate_costs(report["records"])
         report["session_limit_tokens"] = cap
         report["hard_stop"] = bool(cfg.get("hard_stop"))
         emit(report)
@@ -128,8 +197,21 @@ def run(mode):
     print(f"  input {report['input_tokens']:,} (cached {report['cached_input_tokens']:,}; cache write {report['cache_write_input_tokens']:,})")
     print(f"  output {report['output_tokens']:,} (reasoning {report['reasoning_output_tokens']:,})")
     print(f"  budget: {cap:,}" if isinstance(cap, int) else "  budget: off")
+    estimates = estimate_costs(report["records"])
+    credits = estimates["chatgpt_credits"]
+    if credits["turns"]:
+        print(f"  ChatGPT Standard-rate equivalent: {credits['value']:.2f} credits ({credits['coverage_percent']:.0f}% of tokens priced; not an invoice amount)")
+    else:
+        print("  ChatGPT credit estimate: unavailable (model pricing not recognized)")
+    api = estimates["api_usd"]
+    if api["turns"]:
+        print(f"  API list-price equivalent: ${api['short']:.4f}–${api['long']:.4f} USD ({api['coverage_percent']:.0f}% of tokens priced; short-to-long context range)")
+    else:
+        print("  API USD estimate: unavailable (model pricing not recognized)")
+    if estimates.get("pricing_verified_date"):
+        print(f"  rates verified: {estimates['pricing_verified_date']}")
     print("  transcript: unavailable" if not path else f"  source: {path}")
-    print("  note: Codex transcript usage is best effort; USD cost is not inferred.")
+    print("  note: estimates use published standard rates and transcript usage; actual plan consumption or billing may differ.")
 
 
 if __name__ == "__main__":

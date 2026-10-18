@@ -1,0 +1,46 @@
+{
+  "verified_date": "2026-10-18",
+  "sources": {
+    "chatgpt_credits": "https://learn.chatgpt.com/docs/pricing",
+    "api_usd": "https://developers.openai.com/api/docs/pricing"
+  },
+  "models": {
+    "gpt-6-astra": {
+      "chatgpt_credits_per_million": { "input": 250, "cached_input": 25, "output": 1250 },
+      "api_usd_per_million": {
+        "short": { "input": 10, "cached_input": 1, "cache_write_input": 12.5, "output": 50 },
+        "long": { "input": 20, "cached_input": 2, "cache_write_input": 25, "output": 75 }
+      }
+    },
+    "gpt-6.1-sol": {
+      "chatgpt_credits_per_million": { "input": 50, "cached_input": 2.5, "output": 250 },
+      "api_usd_per_million": {
+        "short": { "input": 2, "cached_input": 0.1, "cache_write_input": 2.5, "output": 10 },
+        "long": { "input": 4, "cached_input": 0.2, "cache_write_input": 5, "output": 15 }
+      }
+    },
+    "gpt-6-sol": {
+      "chatgpt_credits_per_million": { "input": 50, "cached_input": 5, "output": 250 }
+    },
+    "gpt-6-luna": {
+      "chatgpt_credits_per_million": { "input": 2.5, "cached_input": 0.25, "output": 12.5 },
+      "api_usd_per_million": {
+        "short": { "input": 0.1, "cached_input": 0.01, "cache_write_input": 0.125, "output": 0.5 },
+        "long": { "input": 0.2, "cached_input": 0.02, "cache_write_input": 0.25, "output": 0.75 }
+      }
+    },
+    "gpt-5.6-sol": {
+      "chatgpt_credits_per_million": { "input": 100, "cached_input": 10, "output": 500 },
+      "api_usd_per_million": {
+        "short": { "input": 4, "cached_input": 0.4, "cache_write_input": 5, "output": 20 },
+        "long": { "input": 8, "cached_input": 0.8, "cache_write_input": 10, "output": 30 }
+      }
+    },
+    "gpt-5.6-terra": {
+      "chatgpt_credits_per_million": { "input": 50, "cached_input": 5, "output": 300 }
+    },
+    "gpt-5.6-luna": {
+      "chatgpt_credits_per_million": { "input": 5, "cached_input": 0.5, "output": 30 }
+    }
+  }
+}
