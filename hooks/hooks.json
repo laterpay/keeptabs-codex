@@ -1,6 +1,13 @@
 {
   "description": "keeptabs token usage reporting and budget guard",
   "hooks": {
+    "SessionStart": [{
+      "hooks": [{
+        "type": "command",
+        "command": "python3 \"${PLUGIN_ROOT}/scripts/keeptabs.py\" init-quiet",
+        "timeout": 10
+      }]
+    }],
     "UserPromptSubmit": [{
       "hooks": [{
         "type": "command",

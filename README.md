@@ -37,7 +37,7 @@ The provisional defaults are a 10,000,000-token session limit, a warning at 80% 
 
 ### Automatic hooks
 
-After the plugin is installed and its hooks are enabled and trusted in Codex, Keeptabs checks the current transcript on prompt submission and before supported local tool calls. No manual command is needed for the configured warning or hard-stop behavior.
+After the plugin is enabled and its hooks are trusted in Codex, the `SessionStart` hook creates `$CODEX_HOME/keeptabs/budget.json` from the plugin defaults if the file does not already exist. This runs on the first Codex session using the plugin, not at the instant of installation; Codex plugins do not provide an install-time script. It never overwrites an existing personal config. Keeptabs also checks the current transcript on prompt submission and before supported local tool calls, so no manual command is needed for the configured warning or hard-stop behavior.
 
 ## Install for local development
 

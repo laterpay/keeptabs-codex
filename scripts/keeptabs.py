@@ -86,7 +86,16 @@ def emit(obj):
     print(json.dumps(obj))
 
 
+def ensure_config():
+    DATA.mkdir(parents=True, exist_ok=True)
+    if not CFG.exists():
+        CFG.write_text(DEFAULT_CFG.read_text())
+
+
 def run(mode):
+    if mode == "init-quiet":
+        ensure_config()
+        return
     event = read_input()
     path = event.get("transcript_path") or latest_transcript()
     report = usage(path)
@@ -112,9 +121,7 @@ def run(mode):
         emit(report)
         return
     if mode == "init":
-        DATA.mkdir(parents=True, exist_ok=True)
-        if not CFG.exists():
-            CFG.write_text(DEFAULT_CFG.read_text())
+        ensure_config()
         print(f"Initialized {CFG}")
         return
     print(f"keeptabs-codex · observed tokens: {total:,} across {report['turns']} turns")
