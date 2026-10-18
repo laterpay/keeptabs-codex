@@ -39,7 +39,17 @@ The provisional defaults are a 10,000,000-token session limit, a warning at 80% 
 
 ### Prompt cost preflight
 
-Before each prompt, the hook displays the session-to-date cost estimates from usage already recorded in the transcript. It cannot quote the full cost of the prompt about to run: the hook does not receive the complete model context or know how much output and tool use will follow. Cost confirmation defaults on at 10 ChatGPT Standard-rate credits or $1.00 API list-price equivalent; crossing either configured threshold blocks the prompt and asks you to resend the full prompt prefixed with `KEEP TABS CONTINUE:`. This is an explicit resubmission, not a native confirmation dialog; the blocked prompt is not replayed automatically. The API threshold compares against the upper end of the short-to-long context rate estimate. Set either threshold to `null` in the personal budget file to disable that check.
+Before each prompt, the hook reads usage already recorded in the current session transcript and displays session-to-date cost estimates. It compares those estimates with the configured thresholds. By default, the gate is enabled at 10 ChatGPT Standard-rate credits or $1.00 API list-price equivalent; reaching either threshold is enough to block. The API check uses the upper end of the short-to-long context estimate. Set a threshold to `null` in the personal budget file to turn off that check.
+
+The check happens before the submitted prompt runs. It only sees usage already written to the transcript, so if a prompt itself pushes the session over a threshold, that prompt can run; the next prompt is where the gate can block. Estimates are rate equivalents, not a forecast of the new prompt's full cost or a bill.
+
+When a prompt is blocked, Codex rejects that submission before sending it to the model. Keeptabs does not save or replay it. To continue, manually resend the complete prompt with `KEEP TABS CONTINUE:` at the very beginning, for example:
+
+```text
+KEEP TABS CONTINUE: Please summarize the changes.
+```
+
+That prefix confirms this one submission. The hook lets it through and adds context asking Codex to treat the text after the prefix as the request and not repeat the marker. It does not disable the gate or reset session usage, so any later prompt that is still above a threshold will need the prefix too. This is a manual resubmission flow, not a confirmation dialog that remembers or automatically replays your blocked prompt.
 
 ### Automatic hooks
 
