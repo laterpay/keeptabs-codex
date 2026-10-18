@@ -23,12 +23,18 @@ def read_input():
 
 def config():
     try:
-        return json.loads(CFG.read_text())
+        cfg = json.loads(DEFAULT_CFG.read_text())
     except Exception:
-        try:
-            return json.loads(DEFAULT_CFG.read_text())
-        except Exception:
-            return {"session_limit_tokens": None, "daily_limit_tokens": None, "warn_at_percent": 80, "hard_stop": False}
+        cfg = {"session_limit_tokens": None, "daily_limit_tokens": None, "warn_at_percent": 80,
+               "hard_stop": False, "confirm_prompt_above_chatgpt_credits": 10,
+               "confirm_prompt_above_api_usd": 1.0}
+    try:
+        user_cfg = json.loads(CFG.read_text())
+    except Exception:
+        user_cfg = {}
+    if isinstance(user_cfg, dict):
+        cfg.update(user_cfg)
+    return cfg
 
 
 def records(path):
