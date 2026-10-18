@@ -5,8 +5,8 @@ description: Show observed token usage for this Codex session and explain the co
 
 # keeptabs spend
 
-Run the plugin's usage report and summarize observed input, cached input, output, reasoning output, total tokens, and the configured limit:
+Run the plugin's usage report and summarize observed input, cached input, output, reasoning output, total tokens, and the configured limit. The helper is `scripts/keeptabs.py` under the plugin root. Resolve that root from this skill's installed path (`<plugin root>/skills/spend/SKILL.md`) and invoke the helper by its absolute path. Do not rely on `PLUGIN_ROOT`; Codex sets that variable for hook commands, not ordinary shell commands launched by a skill.
 
-    python3 "${PLUGIN_ROOT}/scripts/keeptabs.py" status
+    python3 <absolute-plugin-root>/scripts/keeptabs.py status
 
 The report is derived from Codex's local session transcript. It is best effort because that format is not a stable interface. Do not convert tokens into USD or claim billing cost; Codex plan usage and API billing are different and this plugin has no billing feed.
