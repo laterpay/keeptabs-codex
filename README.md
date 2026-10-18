@@ -9,6 +9,7 @@ An initial Codex port of Supertab's keeptabs usage and budget workflow. It reads
 - This release reports tokens only. It does not estimate USD cost, because Codex usage may be subscription based and this is not an API billing feed.
 - A hard stop only sees token usage already written to the transcript. It cannot interrupt an in-flight model request; it can block subsequent prompts and supported local tool calls. Hosted tools do not run local hooks.
 - `daily_limit_tokens` is reserved in configuration but is not enforced yet.
+- The default session limit is off until a Codex-specific warning threshold is calibrated from representative sessions. To gather observations, run the `keeptabs-spend` skill after a session and record its observed token total alongside a short session type (for example, coding, research, or short Q&A). Collect a mix of typical sessions over a week or two, then use the distribution—especially the median and 80th/90th percentile—to choose a warning threshold. These are observed token counts, not cost estimates.
 
 ## Install for local development
 
