@@ -43,6 +43,9 @@ Before each prompt, the hook reads usage already recorded in the current session
 
 The check happens before the submitted prompt runs. It only sees usage already written to the transcript, so if a prompt itself pushes the session over a threshold, that prompt can run; the next prompt is where the gate can block. Estimates are rate equivalents, not a forecast of the new prompt's full cost or a bill.
 
+<img width="785" height="395" alt="image" src="https://github.com/user-attachments/assets/f4e7e398-0e85-4d05-887f-1c3cbc5dc817" />
+
+
 When a prompt is blocked, Codex rejects that submission before sending it to the model. Keeptabs does not save or replay it. To continue, manually resend the complete prompt with `KEEP TABS CONTINUE:` at the very beginning, for example:
 
 ```text
