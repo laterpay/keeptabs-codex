@@ -1,0 +1,20 @@
+{
+  "description": "keeptabs token usage reporting and budget guard",
+  "hooks": {
+    "UserPromptSubmit": [{
+      "hooks": [{
+        "type": "command",
+        "command": "python3 \"${PLUGIN_ROOT}/scripts/keeptabs.py\" hook-prompt",
+        "timeout": 10
+      }]
+    }],
+    "PreToolUse": [{
+      "matcher": ".*",
+      "hooks": [{
+        "type": "command",
+        "command": "python3 \"${PLUGIN_ROOT}/scripts/keeptabs.py\" hook-tool",
+        "timeout": 10
+      }]
+    }]
+  }
+}

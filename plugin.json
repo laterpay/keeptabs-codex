@@ -1,0 +1,10 @@
+{
+  "name": "keeptabs-codex",
+  "version": "0.1.0",
+  "description": "Token usage visibility and configurable token budget guardrails for Codex sessions.",
+  "author": { "name": "Supertab" },
+  "skills": "./skills/",
+  "extensions": {
+    "com.openai": { "hooks": "./hooks/hooks.json" }
+  }
+}
