@@ -1,5 +1,5 @@
 {
-  "session_limit_tokens": null,
+  "session_limit_tokens": 10000000,
   "daily_limit_tokens": null,
   "warn_at_percent": 80,
   "hard_stop": false
