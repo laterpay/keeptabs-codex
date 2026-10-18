@@ -1,5 +1,7 @@
 {
   "session_limit_tokens": 10000000,
+  "confirm_prompt_above_chatgpt_credits": null,
+  "confirm_prompt_above_api_usd": null,
   "daily_limit_tokens": null,
   "warn_at_percent": 80,
   "hard_stop": false

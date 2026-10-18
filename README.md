@@ -37,6 +37,10 @@ For example, ask: “Set the session limit to 15 million tokens and keep hard st
 
 The provisional defaults are a 10,000,000-token session limit, a warning at 80% (8,000,000 tokens), and hard stops off. When enabled, the prompt hook displays a warning after the threshold is reached. If you enable hard stops, the hooks can block later prompts and supported local tool calls after the limit is reached; they cannot interrupt an in-flight request, and hosted tools are not covered.
 
+### Prompt cost preflight
+
+Before each prompt, the hook can display the session-to-date cost estimates from usage already recorded in the transcript. It cannot quote the full cost of the prompt about to run: the hook does not receive the complete model context or know how much output and tool use will follow. Cost confirmation is optional and off by default. Set `confirm_prompt_above_chatgpt_credits` or `confirm_prompt_above_api_usd` in the personal budget file to a positive threshold. If the corresponding session estimate reaches that threshold, Keeptabs blocks the prompt and asks you to resend the full prompt prefixed with `KEEP TABS CONTINUE:`. This is an explicit resubmission, not a native confirmation dialog; the blocked prompt is not replayed automatically. The API threshold compares against the upper end of the short-to-long context rate estimate.
+
 ### Automatic hooks
 
 After the plugin is enabled and its hooks are trusted in Codex, the `SessionStart` hook creates `$CODEX_HOME/keeptabs/budget.json` from the plugin defaults if the file does not already exist. This runs on the first Codex session using the plugin, not at the instant of installation; Codex plugins do not provide an install-time script. It never overwrites an existing personal config. Keeptabs also checks the current transcript on prompt submission and before supported local tool calls, so no manual command is needed for the configured warning or hard-stop behavior.
