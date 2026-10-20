@@ -7,11 +7,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DATA = Path(os.environ.get("CODEX_HOME", Path.home() / ".codex")) / "keeptabs"
+CODEX_HOME = Path(os.environ.get("CODEX_HOME", Path.home() / ".codex"))
+DATA = CODEX_HOME / "tokentabs"
+LEGACY_DATA = CODEX_HOME / "keeptabs"
 CFG = DATA / "budget.json"
 DEFAULT_CFG = ROOT / "budget.json"
 PRICING_FILE = Path(__file__).with_name("pricing.json")
-CONFIRM_PREFIX = "KEEP TABS CONTINUE:"
+CONFIRM_PREFIX = "TOKEN TABS CONTINUE:"
 
 
 def read_input():
@@ -27,11 +29,14 @@ def config():
     except Exception:
         cfg = {"session_limit_tokens": None, "daily_limit_tokens": None, "warn_at_percent": 80,
                "hard_stop": False, "confirm_prompt_above_chatgpt_credits": 10,
-               "confirm_prompt_above_api_usd": 1.0}
+               "confirm_prompt_above_api_usd": 1.0, "prompt_cost_action": "block"}
     try:
         user_cfg = json.loads(CFG.read_text())
     except Exception:
-        user_cfg = {}
+        try:
+            user_cfg = json.loads((LEGACY_DATA / "budget.json").read_text())
+        except Exception:
+            user_cfg = {}
     if isinstance(user_cfg, dict):
         cfg.update(user_cfg)
     return cfg
@@ -163,7 +168,7 @@ def estimate_costs(rows):
 
 def prompt_preflight(report, cfg, prompt):
     estimates = estimate_costs(report["records"])
-    messages = ["Keeptabs preflight (session usage before this prompt):"]
+    messages = ["TokenTabs preflight (session usage before this prompt):"]
     credits = estimates["chatgpt_credits"]
     api = estimates["api_usd"]
     if credits["turns"]:
@@ -184,6 +189,9 @@ def prompt_preflight(report, cfg, prompt):
 
     prompt = prompt if isinstance(prompt, str) else ""
     confirmed = prompt.lstrip().startswith(CONFIRM_PREFIX)
+    action = cfg.get("prompt_cost_action")
+    if action not in ("warn", "block"):
+        action = "block"
     exceeded = []
     credit_limit = cfg.get("confirm_prompt_above_chatgpt_credits")
     if isinstance(credit_limit, (int, float)) and not isinstance(credit_limit, bool) and credit_limit > 0:
@@ -194,10 +202,13 @@ def prompt_preflight(report, cfg, prompt):
         if api["turns"] and api["long"] >= api_limit:
             exceeded.append(f"API estimate upper bound ${api['long']:.4f} reached ${api_limit:.4f}")
 
-    if exceeded and not confirmed:
+    if exceeded and action == "warn":
+        messages.append("TokenTabs warning: " + "; ".join(exceeded) + ". The prompt will proceed.")
+
+    if exceeded and action == "block" and not confirmed:
         reason = "; ".join(exceeded)
         return {"decision": "block", "reason": (
-            f"keeptabs: {reason}. To proceed, resend the full prompt prefixed with "
+            f"TokenTabs: {reason}. To proceed, resend the full prompt prefixed with "
             f"'{CONFIRM_PREFIX}' (the blocked prompt is not replayed automatically)."
         )}
     if exceeded and confirmed:
@@ -218,7 +229,8 @@ def prompt_preflight(report, cfg, prompt):
 def ensure_config():
     DATA.mkdir(parents=True, exist_ok=True)
     if not CFG.exists():
-        CFG.write_text(DEFAULT_CFG.read_text())
+        legacy_cfg = LEGACY_DATA / "budget.json"
+        CFG.write_text(legacy_cfg.read_text() if legacy_cfg.exists() else DEFAULT_CFG.read_text())
 
 
 def run(mode):
@@ -236,16 +248,16 @@ def run(mode):
     if mode == "hook-tool":
         if over and cfg.get("hard_stop"):
             emit({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
-                  "permissionDecisionReason": f"keeptabs: observed session usage {total:,} tokens reached the {cap:,}-token limit. Change ~/.codex/keeptabs/budget.json to adjust it."}})
+                  "permissionDecisionReason": f"TokenTabs: observed session usage {total:,} tokens reached the {cap:,}-token limit. Change ~/.codex/tokentabs/budget.json to adjust it."}})
         return
     if mode == "hook-prompt":
         if over and cfg.get("hard_stop"):
-            emit({"continue": False, "stopReason": f"keeptabs: observed usage reached the {cap:,}-token session limit."})
+            emit({"continue": False, "stopReason": f"TokenTabs: observed usage reached the {cap:,}-token session limit."})
         else:
             preflight = prompt_preflight(report, cfg, event.get("prompt"))
             if "systemMessage" in preflight and isinstance(cap, int) and cap > 0 and total >= cap * warn / 100:
                 preflight["systemMessage"] = (
-                    f"keeptabs budget warning: observed session usage is {total:,} tokens ({total/cap:.0%} of {cap:,}). "
+                    f"TokenTabs budget warning: observed session usage is {total:,} tokens ({total/cap:.0%} of {cap:,}). "
                     + preflight["systemMessage"]
                 )
             emit(preflight)
@@ -254,6 +266,7 @@ def run(mode):
         report["cost_estimates"] = estimate_costs(report["records"])
         report["confirm_prompt_above_chatgpt_credits"] = cfg.get("confirm_prompt_above_chatgpt_credits")
         report["confirm_prompt_above_api_usd"] = cfg.get("confirm_prompt_above_api_usd")
+        report["prompt_cost_action"] = cfg.get("prompt_cost_action", "block")
         report["session_limit_tokens"] = cap
         report["hard_stop"] = bool(cfg.get("hard_stop"))
         emit(report)
@@ -262,7 +275,7 @@ def run(mode):
         ensure_config()
         print(f"Initialized {CFG}")
         return
-    print(f"keeptabs-codex · observed tokens: {total:,} across {report['turns']} turns")
+    print(f"tokentabs-codex · observed tokens: {total:,} across {report['turns']} turns")
     print(f"  input {report['input_tokens']:,} (cached {report['cached_input_tokens']:,}; cache write {report['cache_write_input_tokens']:,})")
     print(f"  output {report['output_tokens']:,} (reasoning {report['reasoning_output_tokens']:,})")
     print(f"  budget: {cap:,}" if isinstance(cap, int) else "  budget: off")
@@ -283,7 +296,8 @@ def run(mode):
     api_gate = cfg.get("confirm_prompt_above_api_usd")
     credit_gate_text = f"{credit_gate:g} credits" if isinstance(credit_gate, (int, float)) and credit_gate > 0 else "off"
     api_gate_text = f"${api_gate:g}" if isinstance(api_gate, (int, float)) and api_gate > 0 else "off"
-    print(f"  prompt confirmation: ChatGPT {credit_gate_text}; API {api_gate_text}")
+    print(f"  prompt cost thresholds: ChatGPT {credit_gate_text}; API {api_gate_text}")
+    print(f"  threshold action: {cfg.get('prompt_cost_action', 'block')}")
     print("  transcript: unavailable" if not path else f"  source: {path}")
     print("  note: estimates use published standard rates and transcript usage; actual plan consumption or billing may differ.")
 

@@ -1,5 +1,5 @@
 {
-  "name": "keeptabs-codex",
+  "name": "tokentabs-codex",
   "version": "0.1.0",
   "description": "Token usage visibility and configurable token budget guardrails for Codex sessions.",
   "author": { "name": "Supertab" },

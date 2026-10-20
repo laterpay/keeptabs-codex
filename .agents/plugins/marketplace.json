@@ -1,11 +1,11 @@
 {
-  "name": "keeptabs-codex-local",
+  "name": "tokentabs-codex-local",
   "interface": {
-    "displayName": "keeptabs-codex local"
+    "displayName": "TokenTabs Codex local"
   },
   "plugins": [
     {
-      "name": "keeptabs-codex",
+      "name": "tokentabs-codex",
       "source": {
         "source": "local",
         "path": "./"

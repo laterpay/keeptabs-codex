@@ -1,17 +1,17 @@
 {
-  "description": "keeptabs token usage reporting and budget guard",
+  "description": "TokenTabs token usage reporting and budget guard",
   "hooks": {
     "SessionStart": [{
       "hooks": [{
         "type": "command",
-        "command": "python3 \"${PLUGIN_ROOT}/scripts/keeptabs.py\" init-quiet",
+        "command": "python3 \"${PLUGIN_ROOT}/scripts/tokentabs.py\" init-quiet",
         "timeout": 10
       }]
     }],
     "UserPromptSubmit": [{
       "hooks": [{
         "type": "command",
-        "command": "python3 \"${PLUGIN_ROOT}/scripts/keeptabs.py\" hook-prompt",
+        "command": "python3 \"${PLUGIN_ROOT}/scripts/tokentabs.py\" hook-prompt",
         "timeout": 10
       }]
     }],
@@ -19,7 +19,7 @@
       "matcher": ".*",
       "hooks": [{
         "type": "command",
-        "command": "python3 \"${PLUGIN_ROOT}/scripts/keeptabs.py\" hook-tool",
+        "command": "python3 \"${PLUGIN_ROOT}/scripts/tokentabs.py\" hook-tool",
         "timeout": 10
       }]
     }]
