@@ -104,6 +104,50 @@ def latest_transcript():
         return None
 
 
+def local_event_date(value):
+    """Return a transcript timestamp's local calendar date, if it is parseable."""
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone().date()
+
+
+def daily_usage(current_path, current_rows, today=None):
+    """Sum observed usage from transcript records dated today in the local timezone."""
+    today = today or datetime.now().astimezone().date()
+    sessions = CODEX_HOME / "sessions"
+    paths = set()
+    try:
+        for candidate in sessions.rglob("rollout-*.jsonl"):
+            try:
+                # A transcript may span midnight. Old sessions cannot contain
+                # records dated today unless they were updated recently.
+                if candidate.stat().st_mtime >= datetime.now().timestamp() - 48 * 60 * 60:
+                    paths.add(candidate.resolve())
+            except OSError:
+                continue
+    except OSError:
+        pass
+
+    current = Path(current_path).resolve() if current_path else None
+    if current:
+        paths.add(current)
+    total = 0
+    for transcript in paths:
+        rows = current_rows if current and transcript == current else records(transcript)
+        total += sum(
+            max(0, row.get("total") or 0)
+            for row in rows
+            if local_event_date(row.get("ts")) == today
+        )
+    return total
+
+
 def emit(obj):
     print(json.dumps(obj))
 
@@ -240,34 +284,51 @@ def run(mode):
     event = read_input()
     path = event.get("transcript_path") or latest_transcript()
     report = usage(path)
+    daily_total = daily_usage(path, report["records"])
     cfg = config()
     cap = cfg.get("session_limit_tokens")
+    daily_cap = cfg.get("daily_limit_tokens")
     warn = cfg.get("warn_at_percent", 80)
     total = report["total_tokens"]
-    over = isinstance(cap, int) and cap > 0 and total >= cap
+    session_over = isinstance(cap, int) and not isinstance(cap, bool) and cap > 0 and total >= cap
+    daily_over = isinstance(daily_cap, int) and not isinstance(daily_cap, bool) and daily_cap > 0 and daily_total >= daily_cap
     if mode == "hook-tool":
-        if over and cfg.get("hard_stop"):
+        if cfg.get("hard_stop") and (session_over or daily_over):
+            reasons = []
+            if session_over:
+                reasons.append(f"session usage {total:,} tokens reached the {cap:,}-token limit")
+            if daily_over:
+                reasons.append(f"today's usage {daily_total:,} tokens reached the {daily_cap:,}-token limit")
             emit({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
-                  "permissionDecisionReason": f"TokenTabs: observed session usage {total:,} tokens reached the {cap:,}-token limit. Change ~/.codex/tokentabs/budget.json to adjust it."}})
+                  "permissionDecisionReason": "TokenTabs: " + "; ".join(reasons) + ". Change ~/.codex/tokentabs/budget.json to adjust it."}})
         return
     if mode == "hook-prompt":
-        if over and cfg.get("hard_stop"):
-            emit({"continue": False, "stopReason": f"TokenTabs: observed usage reached the {cap:,}-token session limit."})
+        if cfg.get("hard_stop") and (session_over or daily_over):
+            reasons = []
+            if session_over:
+                reasons.append(f"session usage reached the {cap:,}-token limit")
+            if daily_over:
+                reasons.append(f"today's usage reached the {daily_cap:,}-token limit")
+            emit({"continue": False, "stopReason": "TokenTabs: " + "; ".join(reasons) + "."})
         else:
             preflight = prompt_preflight(report, cfg, event.get("prompt"))
-            if "systemMessage" in preflight and isinstance(cap, int) and cap > 0 and total >= cap * warn / 100:
-                preflight["systemMessage"] = (
-                    f"TokenTabs budget warning: observed session usage is {total:,} tokens ({total/cap:.0%} of {cap:,}). "
-                    + preflight["systemMessage"]
-                )
+            warnings = []
+            if isinstance(cap, int) and not isinstance(cap, bool) and cap > 0 and total >= cap * warn / 100:
+                warnings.append(f"session usage is {total:,} tokens ({total/cap:.0%} of {cap:,})")
+            if isinstance(daily_cap, int) and not isinstance(daily_cap, bool) and daily_cap > 0 and daily_total >= daily_cap * warn / 100:
+                warnings.append(f"today's usage is {daily_total:,} tokens ({daily_total/daily_cap:.0%} of {daily_cap:,})")
+            if "systemMessage" in preflight and warnings:
+                preflight["systemMessage"] = "TokenTabs budget warning: " + "; ".join(warnings) + ". " + preflight["systemMessage"]
             emit(preflight)
         return
     if mode == "json":
         report["cost_estimates"] = estimate_costs(report["records"])
+        report["daily_usage_tokens"] = daily_total
         report["confirm_prompt_above_chatgpt_credits"] = cfg.get("confirm_prompt_above_chatgpt_credits")
         report["confirm_prompt_above_api_usd"] = cfg.get("confirm_prompt_above_api_usd")
         report["prompt_cost_action"] = cfg.get("prompt_cost_action", "block")
         report["session_limit_tokens"] = cap
+        report["daily_limit_tokens"] = daily_cap
         report["hard_stop"] = bool(cfg.get("hard_stop"))
         emit(report)
         return
@@ -279,6 +340,7 @@ def run(mode):
     print(f"  input {report['input_tokens']:,} (cached {report['cached_input_tokens']:,}; cache write {report['cache_write_input_tokens']:,})")
     print(f"  output {report['output_tokens']:,} (reasoning {report['reasoning_output_tokens']:,})")
     print(f"  budget: {cap:,}" if isinstance(cap, int) else "  budget: off")
+    print(f"  today: {daily_total:,} tokens" + (f" / {daily_cap:,}" if isinstance(daily_cap, int) and not isinstance(daily_cap, bool) else ""))
     estimates = estimate_costs(report["records"])
     credits = estimates["chatgpt_credits"]
     if credits["turns"]:

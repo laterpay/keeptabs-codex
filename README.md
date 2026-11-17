@@ -1,6 +1,6 @@
 # TokenTabs Codex
 
-A Codex token usage and budget plugin. It reads local Codex session transcript `token_usage_record` events, reports observed token counts, warns at a configured threshold, and can deny later prompts and local tool calls after a session cap is reached.
+A Codex token usage and budget plugin. It reads local Codex session transcript `token_usage_record` events, reports observed token counts, warns at configured thresholds, and can deny later prompts and local tool calls after a session or daily cap is reached.
 
 ## Codex-specific behavior
 
@@ -8,7 +8,6 @@ A Codex token usage and budget plugin. It reads local Codex session transcript `
 - Codex documents the hook's `transcript_path` format as unstable. Usage is best effort and may need updates as Codex evolves.
 - Cost estimates are best-effort rate equivalents, not a bill. ChatGPT use is shown as Standard-rate credits; API use is shown as Standard list-price USD, with a short-to-long context range when published rates differ. ChatGPT credits are not converted to dollars because plan allowances and credit prices vary.
 - A hard stop only sees token usage already written to the transcript. It cannot interrupt an in-flight model request; it can block subsequent prompts and supported local tool calls. Hosted tools do not run local hooks.
-- `daily_limit_tokens` is reserved in configuration but is not enforced yet.
 - The provisional default session limit is 10,000,000 tokens, with a warning at 80% and hard stops disabled. This is a rough starting point informed by one published long-running Codex experiment, not a calibrated typical-session threshold. To gather observations, run the `tokentabs-spend` skill after a session and record its observed token total alongside a short session type (for example, coding, research, or short Q&A). Use the distribution—especially the median and 80th/90th percentile—to revisit the threshold. These are observed token counts, not cost estimates.
 
 ## Use the plugin
@@ -33,9 +32,9 @@ Invoke the budget skill and state what you want to inspect or change:
 $tokentabs-codex:tokentabs-budget
 ```
 
-For example, ask: “Set the session limit to 15 million tokens, keep hard stops off, and warn instead of blocking when cost thresholds are reached.” Settings live in `$CODEX_HOME/tokentabs/budget.json`, or `~/.codex/tokentabs/budget.json` when `CODEX_HOME` is not set. If the new TokenTabs settings file does not exist, TokenTabs copies settings from the previous `$CODEX_HOME/keeptabs/budget.json` location (or `~/.codex/keeptabs/budget.json`) on first initialization. The original file is left in place. Supported fields are `session_limit_tokens` (positive integer or `null` for off), `warn_at_percent` (1–100), `hard_stop` (boolean), `confirm_prompt_above_chatgpt_credits` and `confirm_prompt_above_api_usd` (positive number or `null` to disable each check), `prompt_cost_action` (`"warn"` or `"block"`), and `daily_limit_tokens` (reserved; not enforced).
+For example, ask: “Set the session limit to 15 million tokens, keep hard stops off, and warn instead of blocking when cost thresholds are reached.” Settings live in `$CODEX_HOME/tokentabs/budget.json`, or `~/.codex/tokentabs/budget.json` when `CODEX_HOME` is not set. If the new TokenTabs settings file does not exist, TokenTabs copies settings from the previous `$CODEX_HOME/keeptabs/budget.json` location (or `~/.codex/keeptabs/budget.json`) on first initialization. The original file is left in place. Supported fields are `session_limit_tokens` and `daily_limit_tokens` (positive integer or `null` for off), `warn_at_percent` (1–100), `hard_stop` (boolean), `confirm_prompt_above_chatgpt_credits` and `confirm_prompt_above_api_usd` (positive number or `null` to disable each check), and `prompt_cost_action` (`"warn"` or `"block"`). A daily token limit counts usage recorded across local session transcripts for the machine's current calendar day. Like session limits, it warns at `warn_at_percent`; setting `hard_stop` to `true` blocks later prompts and supported local tool calls after either limit is reached. Daily totals are best effort because Codex transcript timestamps and formats may change.
 
-The provisional defaults are a 10,000,000-token session limit, a warning at 80% (8,000,000 tokens), and hard stops off. When enabled, the prompt hook displays a warning after the threshold is reached. If you enable hard stops, the hooks can block later prompts and supported local tool calls after the limit is reached; they cannot interrupt an in-flight request, and hosted tools are not covered.
+The provisional defaults are a 10,000,000-token session limit, no daily limit, a warning at 80% (8,000,000 tokens), and hard stops off. When enabled, the prompt hook displays a warning after either configured limit reaches the threshold. If you enable hard stops, the hooks can block later prompts and supported local tool calls after either limit is reached; they cannot interrupt an in-flight request, and hosted tools are not covered.
 
 ### Prompt cost preflight
 

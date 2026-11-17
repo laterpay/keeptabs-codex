@@ -5,7 +5,7 @@ description: Show observed token usage for this Codex session and explain the co
 
 # TokenTabs spend
 
-Run the plugin's usage report and summarize observed input, cached input, output, reasoning output, total tokens, the configured limit, and any available ChatGPT credit/API USD rate estimates. Include the pricing coverage and explain that these are estimates, not actual charges. The helper is `scripts/tokentabs.py` under the plugin root. Resolve that root from this skill's installed path (`<plugin root>/skills/spend/SKILL.md`) and invoke the helper by its absolute path. Do not rely on `PLUGIN_ROOT`; Codex sets that variable for hook commands, not ordinary shell commands launched by a skill.
+Run the plugin's usage report and summarize observed input, cached input, output, reasoning output, session tokens, today's observed tokens, configured session and daily limits, and any available ChatGPT credit/API USD rate estimates. Include the pricing coverage and explain that these are estimates, not actual charges. The helper is `scripts/tokentabs.py` under the plugin root. Resolve that root from this skill's installed path (`<plugin root>/skills/spend/SKILL.md`) and invoke the helper by its absolute path. Do not rely on `PLUGIN_ROOT`; Codex sets that variable for hook commands, not ordinary shell commands launched by a skill.
 
     python3 <absolute-plugin-root>/scripts/tokentabs.py status
 
